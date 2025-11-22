@@ -28,7 +28,7 @@ const ground = new THREE.Mesh(
 ground.rotation.x = -Math.PI/2;
 scene.add(ground);
 
-// Arena walls
+// Arena Walls
 const walls = [];
 function createWall(x,z,w,h){
     const wall = new THREE.Mesh(
@@ -44,9 +44,11 @@ createWall(0,25,50,1);
 createWall(-25,0,1,50);
 createWall(25,0,1,50);
 
-// === Player Model ===
-let player;
+// GLTF Loader
 const loader = new THREE.GLTFLoader();
+
+// Player
+let player;
 loader.load('https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/RobotExpressive/glTF/RobotExpressive.glb', gltf=>{
     player = gltf.scene;
     player.scale.set(0.5,0.5,0.5);
@@ -86,7 +88,7 @@ function updateScore(val){
     document.getElementById('score').innerText = "Score: "+score;
 }
 
-// === Player Movement & Gravity ===
+// Movement & Gravity
 let velocityY = 0;
 const gravity = -0.02;
 let canJump = false;
@@ -94,27 +96,27 @@ const keys = {};
 document.addEventListener('keydown', e=>keys[e.key.toLowerCase()]=true);
 document.addEventListener('keyup', e=>keys[e.key.toLowerCase()]=false);
 
-// === Mouse Control ===
-let yaw = 0;
-let pitch = 0;
-let sensitivity = 1;
-let invertY = false;
-let invertX = false;
+// Mouse control
+let yaw = 0, pitch = 0;
+let sensitivity = 1, invertY = false, invertX = false;
 
 const sensSlider = document.getElementById('sensitivity');
 const senseValue = document.getElementById('senseValue');
-sensSlider.addEventListener('input', ()=>{
-    sensitivity = parseFloat(sensSlider.value);
-    senseValue.innerText = sensitivity;
-});
-
-document.getElementById('invertY').addEventListener('change', e=>invertY = e.target.checked);
-document.getElementById('invertX').addEventListener('change', e=>invertX = e.target.checked);
+sensSlider.addEventListener('input', ()=>{sensitivity=parseFloat(sensSlider.value);senseValue.innerText=sensitivity;});
+document.getElementById('invertY').addEventListener('change', e=>invertY=e.target.checked);
+document.getElementById('invertX').addEventListener('change', e=>invertX=e.target.checked);
 
 const startButton = document.getElementById('start-button');
 startButton.addEventListener('click', ()=>document.body.requestPointerLock());
 document.addEventListener('pointerlockchange', ()=>{
     if(document.pointerLockElement===document.body) startButton.style.display='none';
+});
+
+// Settings toggle
+const settingsButton = document.getElementById('settings-button');
+const settingsPanel = document.getElementById('settings');
+settingsButton.addEventListener('click', ()=>{
+    settingsPanel.style.display = settingsPanel.style.display==='none'?'block':'none';
 });
 
 document.addEventListener('mousemove', e=>{
@@ -127,7 +129,7 @@ document.addEventListener('mousemove', e=>{
     }
 });
 
-// === Shooting ===
+// Shooting
 const bullets = [];
 function shootBullet(){
     if(!player) return;
@@ -145,7 +147,7 @@ document.addEventListener('mousedown', e=>{
     if(document.pointerLockElement===document.body) shootBullet();
 });
 
-// === Camera Update ===
+// Camera update
 function updateCamera(){
     if(!player) return;
     const radius = 5;
@@ -156,12 +158,12 @@ function updateCamera(){
     camera.lookAt(player.position.x, player.position.y+0.5, player.position.z);
 }
 
-// === Animate Loop ===
+// Animate loop
 function animate(){
     requestAnimationFrame(animate);
     if(!player) return;
 
-    // Movement
+    // Player movement
     let speed = 0.2;
     const dir = new THREE.Vector3();
     if(keys['w']) dir.z -= 1;
@@ -178,21 +180,13 @@ function animate(){
     // Gravity & jump
     velocityY += gravity;
     player.position.y += velocityY;
-    if(player.position.y<=0.5){
-        player.position.y=0.5;
-        velocityY=0;
-        canJump=true;
-    }
-    if(keys[' '] && canJump){
-        velocityY=0.4;
-        canJump=false;
-    }
+    if(player.position.y<=0.5){player.position.y=0.5;velocityY=0;canJump=true;}
+    if(keys[' '] && canJump){velocityY=0.4;canJump=false;}
 
-    // Rivals move toward player
+    // Rivals AI
     rivals.forEach(rival=>{
         const dirToPlayer = new THREE.Vector3().subVectors(player.position,rival.position);
-        dirToPlayer.y = 0;
-        dirToPlayer.normalize();
+        dirToPlayer.y=0; dirToPlayer.normalize();
         rival.position.add(dirToPlayer.multiplyScalar(0.05));
     });
 
