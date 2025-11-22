@@ -15,12 +15,12 @@ window.addEventListener('resize', ()=>{
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// Lighting
+// === Lighting ===
 const light = new THREE.DirectionalLight(0xffffff,1);
 light.position.set(10,20,10);
 scene.add(light);
 
-// Ground
+// === Ground ===
 const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(50,50),
     new THREE.MeshStandardMaterial({color:0x228B22})
@@ -28,7 +28,7 @@ const ground = new THREE.Mesh(
 ground.rotation.x = -Math.PI/2;
 scene.add(ground);
 
-// Arena Walls
+// === Arena Walls ===
 const walls = [];
 function createWall(x,z,w,h){
     const wall = new THREE.Mesh(
@@ -44,32 +44,28 @@ createWall(0,25,50,1);
 createWall(-25,0,1,50);
 createWall(25,0,1,50);
 
-// GLTF Loader
-const loader = new THREE.GLTFLoader();
+// === Player Placeholder ===
+const player = new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.3,1,4,8),
+    new THREE.MeshStandardMaterial({color:0xff0000})
+);
+player.position.y = 0.5;
+scene.add(player);
 
-// Player
-let player;
-loader.load('https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/RobotExpressive/glTF/RobotExpressive.glb', gltf=>{
-    player = gltf.scene;
-    player.scale.set(0.5,0.5,0.5);
-    player.position.y = 0.5;
-    scene.add(player);
-});
-
-// Rivals
+// === Rivals Placeholders ===
 const rivals = [];
 const rivalCount = 5;
 for(let i=0;i<rivalCount;i++){
-    loader.load('https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/RobotExpressive/glTF/RobotExpressive.glb', gltf=>{
-        const rival = gltf.scene.clone();
-        rival.scale.set(0.5,0.5,0.5);
-        rival.position.set((Math.random()-0.5)*30,0.5,(Math.random()-0.5)*30);
-        scene.add(rival);
-        rivals.push(rival);
-    });
+    const rival = new THREE.Mesh(
+        new THREE.CapsuleGeometry(0.3,1,4,8),
+        new THREE.MeshStandardMaterial({color:0x0000ff})
+    );
+    rival.position.set((Math.random()-0.5)*30,0.5,(Math.random()-0.5)*30);
+    scene.add(rival);
+    rivals.push(rival);
 }
 
-// Obstacles
+// === Obstacles ===
 const obstacles = [];
 for(let i=0;i<5;i++){
     const obs = new THREE.Mesh(
@@ -81,14 +77,14 @@ for(let i=0;i<5;i++){
     obstacles.push(obs);
 }
 
-// Score
+// === Score ===
 let score = 0;
 function updateScore(val){
     score += val;
     document.getElementById('score').innerText = "Score: "+score;
 }
 
-// Movement & Gravity
+// === Player Movement & Gravity ===
 let velocityY = 0;
 const gravity = -0.02;
 let canJump = false;
@@ -96,13 +92,16 @@ const keys = {};
 document.addEventListener('keydown', e=>keys[e.key.toLowerCase()]=true);
 document.addEventListener('keyup', e=>keys[e.key.toLowerCase()]=false);
 
-// Mouse control
+// === Mouse Control ===
 let yaw = 0, pitch = 0;
 let sensitivity = 1, invertY = false, invertX = false;
 
 const sensSlider = document.getElementById('sensitivity');
 const senseValue = document.getElementById('senseValue');
-sensSlider.addEventListener('input', ()=>{sensitivity=parseFloat(sensSlider.value);senseValue.innerText=sensitivity;});
+sensSlider.addEventListener('input', ()=>{
+    sensitivity = parseFloat(sensSlider.value);
+    senseValue.innerText = sensitivity;
+});
 document.getElementById('invertY').addEventListener('change', e=>invertY=e.target.checked);
 document.getElementById('invertX').addEventListener('change', e=>invertX=e.target.checked);
 
@@ -129,10 +128,9 @@ document.addEventListener('mousemove', e=>{
     }
 });
 
-// Shooting
+// === Shooting ===
 const bullets = [];
 function shootBullet(){
-    if(!player) return;
     const bullet = new THREE.Mesh(
         new THREE.SphereGeometry(0.2,8,8),
         new THREE.MeshStandardMaterial({color:0xffff00})
@@ -147,9 +145,8 @@ document.addEventListener('mousedown', e=>{
     if(document.pointerLockElement===document.body) shootBullet();
 });
 
-// Camera update
+// === Camera Update ===
 function updateCamera(){
-    if(!player) return;
     const radius = 5;
     const x = player.position.x + radius * Math.cos(pitch) * Math.sin(yaw);
     const y = player.position.y + radius * Math.sin(pitch) + 2;
@@ -158,10 +155,9 @@ function updateCamera(){
     camera.lookAt(player.position.x, player.position.y+0.5, player.position.z);
 }
 
-// Animate loop
+// === Animate Loop ===
 function animate(){
     requestAnimationFrame(animate);
-    if(!player) return;
 
     // Player movement
     let speed = 0.2;
@@ -180,8 +176,8 @@ function animate(){
     // Gravity & jump
     velocityY += gravity;
     player.position.y += velocityY;
-    if(player.position.y<=0.5){player.position.y=0.5;velocityY=0;canJump=true;}
-    if(keys[' '] && canJump){velocityY=0.4;canJump=false;}
+    if(player.position.y<=0.5){player.position.y=0.5; velocityY=0; canJump=true;}
+    if(keys[' '] && canJump){velocityY=0.4; canJump=false;}
 
     // Rivals AI
     rivals.forEach(rival=>{
