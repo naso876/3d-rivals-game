@@ -3,7 +3,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-camera.position.set(0, 2, 5);
+camera.position.set(0,2,5);
 
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -16,7 +16,7 @@ window.addEventListener('resize', ()=>{
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// Lighting
+// === Lighting ===
 const light = new THREE.DirectionalLight(0xffffff,1);
 light.position.set(10,20,10);
 scene.add(light);
@@ -29,7 +29,7 @@ const ground = new THREE.Mesh(
 ground.rotation.x = -Math.PI/2;
 scene.add(ground);
 
-// === Arena walls ===
+// === Arena Walls ===
 const walls = [];
 function createWall(x,z,w,h){
     const wall = new THREE.Mesh(
@@ -40,10 +40,10 @@ function createWall(x,z,w,h){
     scene.add(wall);
     walls.push(wall);
 }
-createWall(0,-25,50,1); // back
-createWall(0,25,50,1); // front
-createWall(-25,0,1,50); // left
-createWall(25,0,1,50); // right
+createWall(0,-25,50,1);
+createWall(0,25,50,1);
+createWall(-25,0,1,50);
+createWall(25,0,1,50);
 
 // === Player ===
 const player = new THREE.Mesh(
@@ -57,7 +57,23 @@ let velocityY = 0;
 const gravity = -0.02;
 let canJump = false;
 
-// === Pointer Lock for mouse ===
+// === Mouse Control ===
+let yaw = 0;
+let pitch = 0;
+let sensitivity = 1;
+let invertY = false;
+
+const sensSlider = document.getElementById('sensitivity');
+const senseValue = document.getElementById('senseValue');
+sensSlider.addEventListener('input', ()=>{
+    sensitivity = parseFloat(sensSlider.value);
+    senseValue.innerText = sensitivity;
+});
+
+document.getElementById('invertY').addEventListener('change', e=>{
+    invertY = e.target.checked;
+});
+
 const startButton = document.getElementById('start-button');
 startButton.addEventListener('click', ()=>{
     document.body.requestPointerLock();
@@ -68,13 +84,12 @@ document.addEventListener('pointerlockchange', ()=>{
     }
 });
 
-let yaw = 0;
-let pitch = 0;
-document.addEventListener('mousemove', (e)=>{
+document.addEventListener('mousemove', e=>{
     if(document.pointerLockElement===document.body){
-        yaw -= e.movementX*0.002;
-        pitch -= e.movementY*0.002;
-        pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2,pitch));
+        const factor = invertY?-1:1;
+        yaw -= e.movementX * 0.002 * sensitivity;
+        pitch -= e.movementY * 0.002 * sensitivity * factor;
+        pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
     }
 });
 
@@ -91,11 +106,7 @@ function shootBullet(){
         new THREE.MeshStandardMaterial({color:0xffff00})
     );
     bullet.position.copy(player.position);
-    const direction = new THREE.Vector3(
-        -Math.sin(yaw),
-        0,
-        -Math.cos(yaw)
-    ).normalize();
+    const direction = new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw)).normalize();
     bullet.direction = direction;
     bullets.push(bullet);
     scene.add(bullet);
@@ -141,11 +152,19 @@ function updateScore(val){
 // === Helper for collisions ===
 function checkCollision(obj, arr){
     for(const a of arr){
-        if(obj.position.distanceTo(a.position)<1){
-            return true;
-        }
+        if(obj.position.distanceTo(a.position)<1) return true;
     }
     return false;
+}
+
+// === Camera Update ===
+function updateCamera(){
+    const radius = 5;
+    const x = player.position.x + radius * Math.cos(pitch) * Math.sin(yaw);
+    const y = player.position.y + radius * Math.sin(pitch) + 2;
+    const z = player.position.z + radius * Math.cos(pitch) * Math.cos(yaw);
+    camera.position.set(x,y,z);
+    camera.lookAt(player.position.x, player.position.y+0.5, player.position.z);
 }
 
 // === Game Loop ===
@@ -164,10 +183,9 @@ function animate(){
     const forward = new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw));
     const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0),forward);
     const move = forward.multiplyScalar(dir.z*speed).add(right.multiplyScalar(dir.x*speed));
-
     player.position.add(move);
 
-    // Gravity & Jump
+    // Gravity & jump
     velocityY += gravity;
     player.position.y += velocityY;
     if(player.position.y<=0.5){
@@ -175,16 +193,14 @@ function animate(){
         velocityY=0;
         canJump=true;
     }
-    if(keys[' ']==true && canJump){
+    if(keys[' '] && canJump){
         velocityY=0.4;
         canJump=false;
     }
 
-    // Keep player inside walls
-    if(player.position.x<-24.5) player.position.x=-24.5;
-    if(player.position.x>24.5) player.position.x=24.5;
-    if(player.position.z<-24.5) player.position.z=-24.5;
-    if(player.position.z>24.5) player.position.z=24.5;
+    // Keep inside walls
+    player.position.x = Math.max(-24.5, Math.min(24.5, player.position.x));
+    player.position.z = Math.max(-24.5, Math.min(24.5, player.position.z));
 
     // Rivals move toward player
     rivals.forEach(rival=>{
@@ -212,16 +228,7 @@ function animate(){
         }
     });
 
-    // Camera follows player with mouse rotation
-    const camOffset = new THREE.Vector3(0,2,5);
-    const rotatedOffset = new THREE.Vector3(
-        camOffset.x*Math.cos(yaw) - camOffset.z*Math.sin(yaw),
-        camOffset.y,
-        camOffset.x*Math.sin(yaw) + camOffset.z*Math.cos(yaw)
-    );
-    camera.position.copy(player.position).add(rotatedOffset);
-    camera.lookAt(player.position);
-
+    updateCamera();
     renderer.render(scene,camera);
 }
 animate();
