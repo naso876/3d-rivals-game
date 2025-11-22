@@ -9,19 +9,18 @@ const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.getElementById('game-container').appendChild(renderer.domElement);
 
-// Resize
 window.addEventListener('resize', ()=>{
     camera.aspect = window.innerWidth/window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// === Lighting ===
+// Lighting
 const light = new THREE.DirectionalLight(0xffffff,1);
 light.position.set(10,20,10);
 scene.add(light);
 
-// === Ground ===
+// Ground
 const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(50,50),
     new THREE.MeshStandardMaterial({color:0x228B22})
@@ -29,7 +28,7 @@ const ground = new THREE.Mesh(
 ground.rotation.x = -Math.PI/2;
 scene.add(ground);
 
-// === Arena Walls ===
+// Arena walls
 const walls = [];
 function createWall(x,z,w,h){
     const wall = new THREE.Mesh(
@@ -45,92 +44,30 @@ createWall(0,25,50,1);
 createWall(-25,0,1,50);
 createWall(25,0,1,50);
 
-// === Player ===
-const player = new THREE.Mesh(
-    new THREE.BoxGeometry(1,1,1),
-    new THREE.MeshStandardMaterial({color:0xff0000})
-);
-player.position.y = 0.5;
-scene.add(player);
-
-let velocityY = 0;
-const gravity = -0.02;
-let canJump = false;
-
-// === Mouse Control ===
-let yaw = 0;
-let pitch = 0;
-let sensitivity = 1;
-let invertY = false;
-
-const sensSlider = document.getElementById('sensitivity');
-const senseValue = document.getElementById('senseValue');
-sensSlider.addEventListener('input', ()=>{
-    sensitivity = parseFloat(sensSlider.value);
-    senseValue.innerText = sensitivity;
+// === Player Model ===
+let player;
+const loader = new THREE.GLTFLoader();
+loader.load('https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/RobotExpressive/glTF/RobotExpressive.glb', gltf=>{
+    player = gltf.scene;
+    player.scale.set(0.5,0.5,0.5);
+    player.position.y = 0.5;
+    scene.add(player);
 });
 
-document.getElementById('invertY').addEventListener('change', e=>{
-    invertY = e.target.checked;
-});
-
-const startButton = document.getElementById('start-button');
-startButton.addEventListener('click', ()=>{
-    document.body.requestPointerLock();
-});
-document.addEventListener('pointerlockchange', ()=>{
-    if(document.pointerLockElement===document.body){
-        startButton.style.display = 'none';
-    }
-});
-
-document.addEventListener('mousemove', e=>{
-    if(document.pointerLockElement===document.body){
-        const factor = invertY?-1:1;
-        yaw -= e.movementX * 0.002 * sensitivity;
-        pitch -= e.movementY * 0.002 * sensitivity * factor;
-        pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
-    }
-});
-
-// === Movement ===
-const keys = {};
-document.addEventListener('keydown', e=>keys[e.key.toLowerCase()]=true);
-document.addEventListener('keyup', e=>keys[e.key.toLowerCase()]=false);
-
-// === Bullets ===
-const bullets = [];
-function shootBullet(){
-    const bullet = new THREE.Mesh(
-        new THREE.SphereGeometry(0.2,8,8),
-        new THREE.MeshStandardMaterial({color:0xffff00})
-    );
-    bullet.position.copy(player.position);
-    const direction = new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw)).normalize();
-    bullet.direction = direction;
-    bullets.push(bullet);
-    scene.add(bullet);
-}
-document.addEventListener('mousedown', e=>{
-    if(document.pointerLockElement===document.body){
-        shootBullet();
-    }
-});
-
-// === Rivals ===
+// Rivals
 const rivals = [];
 const rivalCount = 5;
 for(let i=0;i<rivalCount;i++){
-    const rival = new THREE.Mesh(
-        new THREE.BoxGeometry(1,1,1),
-        new THREE.MeshStandardMaterial({color:0x0000ff})
-    );
-    rival.position.set((Math.random()-0.5)*30,0.5,(Math.random()-0.5)*30);
-    scene.add(rival);
-    rivals.push(rival);
+    loader.load('https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/RobotExpressive/glTF/RobotExpressive.glb', gltf=>{
+        const rival = gltf.scene.clone();
+        rival.scale.set(0.5,0.5,0.5);
+        rival.position.set((Math.random()-0.5)*30,0.5,(Math.random()-0.5)*30);
+        scene.add(rival);
+        rivals.push(rival);
+    });
 }
 
-// === Obstacles ===
+// Obstacles
 const obstacles = [];
 for(let i=0;i<5;i++){
     const obs = new THREE.Mesh(
@@ -142,23 +79,75 @@ for(let i=0;i<5;i++){
     obstacles.push(obs);
 }
 
-// === Score ===
+// Score
 let score = 0;
 function updateScore(val){
     score += val;
     document.getElementById('score').innerText = "Score: "+score;
 }
 
-// === Helper for collisions ===
-function checkCollision(obj, arr){
-    for(const a of arr){
-        if(obj.position.distanceTo(a.position)<1) return true;
+// === Player Movement & Gravity ===
+let velocityY = 0;
+const gravity = -0.02;
+let canJump = false;
+const keys = {};
+document.addEventListener('keydown', e=>keys[e.key.toLowerCase()]=true);
+document.addEventListener('keyup', e=>keys[e.key.toLowerCase()]=false);
+
+// === Mouse Control ===
+let yaw = 0;
+let pitch = 0;
+let sensitivity = 1;
+let invertY = false;
+let invertX = false;
+
+const sensSlider = document.getElementById('sensitivity');
+const senseValue = document.getElementById('senseValue');
+sensSlider.addEventListener('input', ()=>{
+    sensitivity = parseFloat(sensSlider.value);
+    senseValue.innerText = sensitivity;
+});
+
+document.getElementById('invertY').addEventListener('change', e=>invertY = e.target.checked);
+document.getElementById('invertX').addEventListener('change', e=>invertX = e.target.checked);
+
+const startButton = document.getElementById('start-button');
+startButton.addEventListener('click', ()=>document.body.requestPointerLock());
+document.addEventListener('pointerlockchange', ()=>{
+    if(document.pointerLockElement===document.body) startButton.style.display='none';
+});
+
+document.addEventListener('mousemove', e=>{
+    if(document.pointerLockElement===document.body){
+        const factorY = invertY?-1:1;
+        const factorX = invertX?-1:1;
+        yaw -= e.movementX*0.002*sensitivity*factorX;
+        pitch -= e.movementY*0.002*sensitivity*factorY;
+        pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
     }
-    return false;
+});
+
+// === Shooting ===
+const bullets = [];
+function shootBullet(){
+    if(!player) return;
+    const bullet = new THREE.Mesh(
+        new THREE.SphereGeometry(0.2,8,8),
+        new THREE.MeshStandardMaterial({color:0xffff00})
+    );
+    bullet.position.copy(player.position);
+    const direction = new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw)).normalize();
+    bullet.direction = direction;
+    bullets.push(bullet);
+    scene.add(bullet);
 }
+document.addEventListener('mousedown', e=>{
+    if(document.pointerLockElement===document.body) shootBullet();
+});
 
 // === Camera Update ===
 function updateCamera(){
+    if(!player) return;
     const radius = 5;
     const x = player.position.x + radius * Math.cos(pitch) * Math.sin(yaw);
     const y = player.position.y + radius * Math.sin(pitch) + 2;
@@ -167,11 +156,12 @@ function updateCamera(){
     camera.lookAt(player.position.x, player.position.y+0.5, player.position.z);
 }
 
-// === Game Loop ===
+// === Animate Loop ===
 function animate(){
     requestAnimationFrame(animate);
+    if(!player) return;
 
-    // Player movement
+    // Movement
     let speed = 0.2;
     const dir = new THREE.Vector3();
     if(keys['w']) dir.z -= 1;
@@ -198,10 +188,6 @@ function animate(){
         canJump=false;
     }
 
-    // Keep inside walls
-    player.position.x = Math.max(-24.5, Math.min(24.5, player.position.x));
-    player.position.z = Math.max(-24.5, Math.min(24.5, player.position.z));
-
     // Rivals move toward player
     rivals.forEach(rival=>{
         const dirToPlayer = new THREE.Vector3().subVectors(player.position,rival.position);
@@ -210,7 +196,7 @@ function animate(){
         rival.position.add(dirToPlayer.multiplyScalar(0.05));
     });
 
-    // Bullet movement & collisions
+    // Bullets
     bullets.forEach((b,i)=>{
         b.position.addScaledVector(b.direction,0.5);
         rivals.forEach((r,j)=>{
